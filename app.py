@@ -137,7 +137,7 @@ class MqttPublisher:
         reason_code: Any,
         _properties: Any = None,
     ) -> None:
-        if str(reason_code) == "0":
+        if str(reason_code) in {"0", "Success"}:
             self._logger.info("MQTT connected")
         else:
             self._logger.warning("MQTT connect returned code %s", reason_code)

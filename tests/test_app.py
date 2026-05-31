@@ -155,6 +155,25 @@ class MqttPublisherTests(unittest.TestCase):
         logger.exception.assert_called_once_with("MQTT connection failed")
         publisher._client.loop_start.assert_not_called()
 
+    def test_on_connect_treats_success_reason_code_as_connected(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(), logger)
+
+        publisher._on_connect(Mock(), None, {}, "Success")
+
+        logger.info.assert_called_once_with("MQTT connected")
+        logger.warning.assert_not_called()
+
+    def test_on_connect_logs_warning_for_non_success_reason_code(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(), logger)
+
+        publisher._on_connect(Mock(), None, {}, "Not authorized")
+
+        logger.warning.assert_called_once_with(
+            "MQTT connect returned code %s", "Not authorized"
+        )
+
 
 class ServerStartupTests(unittest.TestCase):
     @patch("waitress.serve")
