@@ -11,6 +11,7 @@ import socket
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 
 import paho.mqtt.client as mqtt
@@ -330,8 +331,8 @@ _FRONTEND_HTML = """\
       <tr><td>Zone</td><td>{{ event.zone }}</td></tr>
       {% endif %}
       <tr><td>Event ID</td><td>{{ event.eventId }}</td></tr>
-      {% if event.timestamp is not none %}
-      <tr><td>Timestamp</td><td>{{ event.timestamp }}</td></tr>
+      {% if event.timestamp_display is not none %}
+      <tr><td>Timestamp</td><td>{{ event.timestamp_display }}</td></tr>
       {% endif %}
       {% if event.score is not none %}
       <tr><td>Score</td><td>{{ event.score }}</td></tr>
@@ -421,6 +422,22 @@ def _extract_event_meta(
     return meta, thumbnail if isinstance(thumbnail, str) else None
 
 
+def _format_timestamp(timestamp: Any) -> str | None:
+    """Render webhook timestamps in a human-readable UTC format."""
+    if timestamp is None:
+        return None
+    try:
+        ts = float(timestamp)
+    except (TypeError, ValueError):
+        return str(timestamp)
+    if abs(ts) > 100_000_000_000:
+        ts /= 1000.0
+    try:
+        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    except (OverflowError, OSError, ValueError):
+        return str(timestamp)
+
+
 def create_app(
     config: Config | None = None,
     publisher: MqttPublisher | None = None,
@@ -457,6 +474,8 @@ def create_app(
     @app.get("/")
     def index() -> tuple[Any, int]:
         event = latest_store.get_latest()
+        if event is not None:
+            event["timestamp_display"] = _format_timestamp(event.get("timestamp"))
         return (
             render_template_string(
                 _FRONTEND_HTML,

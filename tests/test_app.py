@@ -396,6 +396,7 @@ class WebFrontendTests(unittest.TestCase):
         self.assertIn(b"front_door", response.data)
         self.assertIn(b"evt-42", response.data)
         self.assertIn(b"75", response.data)
+        self.assertIn(b"1970-01-01 02:46:39 UTC", response.data)
         self.assertIn(b"/latest-image", response.data)
 
     def test_latest_image_returns_404_when_no_image(self) -> None:
