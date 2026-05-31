@@ -344,7 +344,14 @@ def create_app(
     return app
 
 
+def run_server(application: Flask | None = None) -> None:
+    """Serve the Flask app using Waitress for production-safe deployment."""
+    from waitress import serve
+
+    app_instance = application or create_app()
+    cfg: Config = app_instance.config["service_config"]
+    serve(app_instance, host=cfg.host, port=cfg.port)
+
+
 if __name__ == "__main__":
-    application = create_app()
-    cfg: Config = application.config["service_config"]
-    application.run(host=cfg.host, port=cfg.port)
+    run_server()

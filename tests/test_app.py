@@ -3,9 +3,11 @@ import logging
 import socket
 import time
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-from app import Config, EventProcessor, MqttPublisher, create_app
+from flask import Flask
+
+from app import Config, EventProcessor, MqttPublisher, create_app, run_server
 
 
 class FakePublisher:
@@ -152,6 +154,17 @@ class MqttPublisherTests(unittest.TestCase):
 
         logger.exception.assert_called_once_with("MQTT connection failed")
         publisher._client.loop_start.assert_not_called()
+
+
+class ServerStartupTests(unittest.TestCase):
+    @patch("waitress.serve")
+    def test_run_server_uses_waitress(self, serve_mock: Mock) -> None:
+        application = Flask(__name__)
+        application.config["service_config"] = Config(host="127.0.0.1", port=5050)
+
+        run_server(application=application)
+
+        serve_mock.assert_called_once_with(application, host="127.0.0.1", port=5050)
 
 
 if __name__ == "__main__":
