@@ -73,7 +73,7 @@ All runtime configuration is done with environment variables.
 | `DEDUP_SECONDS` | `30` | Duplicate suppression window per camera and event type. |
 | `PRESENCE_TIMEOUT` | `180` | Seconds before the presence topic for a camera/zone is set to `OFF`. |
 | `CAMERA_MAP` | empty | Optional camera-to-zone mapping like `CAMERA1=driveway,CAMERA2=frontdoor`. |
-| `LOG_LEVEL` | `INFO` | Application log level. |
+| `LOG_LEVEL` | `INFO` | Application log level. Accepted values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. At `DEBUG` level the raw incoming webhook body is printed to the console. |
 
 Example with additional settings:
 

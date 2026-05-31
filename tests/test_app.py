@@ -130,6 +130,16 @@ class WebhookServiceTests(unittest.TestCase):
         self.assertEqual(400, response.status_code)
         self.assertEqual("error", response.get_json()["status"])
 
+    def test_webhook_logs_raw_body_at_debug_level(self) -> None:
+        raw_body = '{"alarm": {"triggers": []}}'
+        with self.assertLogs("piniHook2Mqtt", level="DEBUG") as captured:
+            self.client.post("/webhook", data=raw_body, content_type="application/json")
+        debug_messages = [m for m in captured.output if "DEBUG" in m]
+        self.assertTrue(
+            any("Incoming webhook body:" in m and raw_body in m for m in debug_messages),
+            f"Expected DEBUG log with raw body not found in: {captured.output}",
+        )
+
 
 class MqttPublisherTests(unittest.TestCase):
     def test_connect_logs_error_without_traceback_for_unresolvable_host(self) -> None:

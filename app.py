@@ -323,6 +323,7 @@ def create_app(
     @app.post("/webhook")
     def webhook() -> tuple[Any, int]:
         logger.info("Received webhook")
+        logger.debug("Incoming webhook body: %s", request.get_data(as_text=True))
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify({"status": "error", "error": "Invalid JSON body"}), 400
