@@ -3,6 +3,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      - HOST
+      - PORT
+      - MQTT_HOST
+      - MQTT_PORT
+      - MQTT_USER
+      - MQTT_PASSWORD
+      - MQTT_TOPIC_EVENTS
+      - MQTT_QOS
+      - MQTT_RETAIN
+      - DEDUP_SECONDS
+      - PRESENCE_TIMEOUT
+      - CAMERA_MAP
+      - LOG_LEVEL
     ports:
       - "4040:8080"
     restart: unless-stopped

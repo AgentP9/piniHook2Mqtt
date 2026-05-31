@@ -6,6 +6,7 @@ import atexit
 import json
 import logging
 import os
+import socket
 import threading
 import time
 from dataclasses import dataclass, field
@@ -107,6 +108,13 @@ class MqttPublisher:
         try:
             self._client.connect(self._config.mqtt_host, self._config.mqtt_port)
             self._client.loop_start()
+        except socket.gaierror as err:
+            self._logger.error(
+                "MQTT connection failed: cannot resolve host %s:%s (%s)",
+                self._config.mqtt_host,
+                self._config.mqtt_port,
+                err,
+            )
         except Exception:
             self._logger.exception("MQTT connection failed")
 

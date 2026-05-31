@@ -28,6 +28,8 @@ Build and start the container:
 MQTT_HOST=<your-mqtt-host> docker compose up --build -d
 ```
 
+The compose service forwards all documented environment variables from your shell (or `.env` file) into the container.
+
 View logs:
 
 ```bash

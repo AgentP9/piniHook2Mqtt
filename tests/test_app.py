@@ -1,9 +1,11 @@
 import json
 import logging
+import socket
 import time
 import unittest
+from unittest.mock import Mock
 
-from app import Config, EventProcessor, create_app
+from app import Config, EventProcessor, MqttPublisher, create_app
 
 
 class FakePublisher:
@@ -125,6 +127,31 @@ class WebhookServiceTests(unittest.TestCase):
         )
         self.assertEqual(400, response.status_code)
         self.assertEqual("error", response.get_json()["status"])
+
+
+class MqttPublisherTests(unittest.TestCase):
+    def test_connect_logs_error_without_traceback_for_unresolvable_host(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(mqtt_host="invalid-host"), logger)
+        publisher._client = Mock()
+        publisher._client.connect.side_effect = socket.gaierror(-2, "Name or service not known")
+
+        publisher.connect()
+
+        logger.error.assert_called_once()
+        logger.exception.assert_not_called()
+        publisher._client.loop_start.assert_not_called()
+
+    def test_connect_logs_exception_for_unexpected_errors(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(), logger)
+        publisher._client = Mock()
+        publisher._client.connect.side_effect = RuntimeError("boom")
+
+        publisher.connect()
+
+        logger.exception.assert_called_once_with("MQTT connection failed")
+        publisher._client.loop_start.assert_not_called()
 
 
 if __name__ == "__main__":
