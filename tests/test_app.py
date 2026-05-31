@@ -3,9 +3,11 @@ import logging
 import socket
 import time
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-from app import Config, EventProcessor, MqttPublisher, create_app
+from flask import Flask
+
+from app import Config, EventProcessor, MqttPublisher, create_app, run_server
 
 
 class FakePublisher:
@@ -152,6 +154,36 @@ class MqttPublisherTests(unittest.TestCase):
 
         logger.exception.assert_called_once_with("MQTT connection failed")
         publisher._client.loop_start.assert_not_called()
+
+    def test_on_connect_treats_success_reason_code_as_connected(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(), logger)
+
+        publisher._on_connect(Mock(), None, {}, "Success")
+
+        logger.info.assert_called_once_with("MQTT connected")
+        logger.warning.assert_not_called()
+
+    def test_on_connect_logs_warning_for_non_success_reason_code(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(), logger)
+
+        publisher._on_connect(Mock(), None, {}, "Not authorized")
+
+        logger.warning.assert_called_once_with(
+            "MQTT connect returned code %s", "Not authorized"
+        )
+
+
+class ServerStartupTests(unittest.TestCase):
+    @patch("waitress.serve")
+    def test_run_server_uses_waitress(self, serve_mock: Mock) -> None:
+        application = Flask(__name__)
+        application.config["service_config"] = Config(host="127.0.0.1", port=5050)
+
+        run_server(application=application)
+
+        serve_mock.assert_called_once_with(application, host="127.0.0.1", port=5050)
 
 
 if __name__ == "__main__":

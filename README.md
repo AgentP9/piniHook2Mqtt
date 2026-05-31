@@ -1,6 +1,6 @@
 # piniHook2Mqtt
 
-Flask service that translates UniFi Protect webhook payloads into MQTT events.
+Flask service (served by Waitress in production mode) that translates UniFi Protect webhook payloads into MQTT events.
 
 ## Container overview
 
@@ -61,8 +61,8 @@ All runtime configuration is done with environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `HOST` | `0.0.0.0` | Flask bind address inside the container. |
-| `PORT` | `8080` | Flask port inside the container. |
+| `HOST` | `0.0.0.0` | HTTP bind address inside the container. |
+| `PORT` | `8080` | HTTP port inside the container. |
 | `MQTT_HOST` | `mosquitto` | MQTT broker hostname or IP reachable from the container. |
 | `MQTT_PORT` | `1883` | MQTT broker port. |
 | `MQTT_USER` | empty | Optional MQTT username. |
