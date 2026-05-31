@@ -3,6 +3,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-8080}
+      MQTT_HOST: ${MQTT_HOST:-mosquitto}
+      MQTT_PORT: ${MQTT_PORT:-1883}
+      MQTT_USER: ${MQTT_USER:-}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:-}
+      MQTT_TOPIC_EVENTS: ${MQTT_TOPIC_EVENTS:-unifi/protect/event}
+      MQTT_QOS: ${MQTT_QOS:-1}
+      MQTT_RETAIN: ${MQTT_RETAIN:-false}
+      DEDUP_SECONDS: ${DEDUP_SECONDS:-30}
+      PRESENCE_TIMEOUT: ${PRESENCE_TIMEOUT:-180}
+      CAMERA_MAP: ${CAMERA_MAP:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "4040:8080"
     restart: unless-stopped
