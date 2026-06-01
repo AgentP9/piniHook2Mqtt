@@ -67,7 +67,8 @@ All runtime configuration is done with environment variables.
 | `MQTT_PORT` | `1883` | MQTT broker port. |
 | `MQTT_USER` | empty | Optional MQTT username. |
 | `MQTT_PASSWORD` | empty | Optional MQTT password. |
-| `MQTT_TOPIC_EVENTS` | `unifi/protect/event` | Topic used for normalized event payloads. |
+| `MQTT_TOPIC` | `unifi/protect` | Root topic used for all publishes (`<root>/event`, `<root>/<zone-or-camera>`, `<root>/<zone-or-camera>/<type>`). |
+| `MQTT_TOPIC_EVENTS` | derived from `MQTT_TOPIC` | Optional explicit event topic. If `MQTT_TOPIC` is unset, this value is used and its parent path becomes the root for presence topics. |
 | `MQTT_QOS` | `1` | QoS used for MQTT publishes. |
 | `MQTT_RETAIN` | `false` | Whether MQTT publishes are retained. |
 | `DEDUP_SECONDS` | `30` | Duplicate suppression window per camera and event type. |
@@ -119,8 +120,10 @@ curl -X POST http://localhost:4040/webhook \
 For each accepted trigger, the service publishes:
 
 1. A normalized JSON event to `MQTT_TOPIC_EVENTS`
-2. A presence state of `ON` to `unifi/protect/presence/<zone-or-camera>`
-3. A presence state of `ON` to `unifi/protect/presence/<zone-or-camera>/<type>` (e.g. `person`, `vehicle`, `animal`)
+2. A presence state of `ON` to `<root-topic>/<zone-or-camera>`
+3. A presence state of `ON` to `<root-topic>/<zone-or-camera>/<type>` (e.g. `person`, `vehicle`, `animal`)
 4. A presence state of `OFF` to both topics after `PRESENCE_TIMEOUT`
 
-If `CAMERA_MAP` contains the camera ID, the mapped zone name is used in the presence topic and added as `zone` in the JSON payload.
+`<root-topic>` is `MQTT_TOPIC` when set. Otherwise it is inferred from `MQTT_TOPIC_EVENTS` (for example `MQTT_TOPIC_EVENTS=unifi/event` yields root `unifi`).
+
+If `CAMERA_MAP` contains the camera ID, the mapped zone name is used in the topic path and added as `zone` in the JSON payload.

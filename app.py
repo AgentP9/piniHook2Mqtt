@@ -18,7 +18,7 @@ import paho.mqtt.client as mqtt
 from flask import Flask, jsonify, render_template_string, request, send_file
 
 DEFAULT_SOURCE = "unifi_protect"
-DEFAULT_PRESENCE_TOPIC_PREFIX = "unifi/protect/presence"
+DEFAULT_MQTT_TOPIC_ROOT = "unifi/protect"
 
 
 def parse_bool(value: str | None, default: bool = False) -> bool:
@@ -65,6 +65,7 @@ class Config:
     mqtt_user: str = ""
     mqtt_password: str = ""
     mqtt_topic_events: str = "unifi/protect/event"
+    mqtt_topic_root: str = "unifi/protect"
     mqtt_qos: int = 1
     mqtt_retain: bool = False
     dedup_seconds: int = 30
@@ -81,6 +82,18 @@ class Config:
         if not webhook_token:
             raise ValueError("WEBHOOK_TOKEN environment variable is required")
 
+        mqtt_topic = (os.getenv("MQTT_TOPIC") or "").strip().strip("/")
+        mqtt_topic_events = (os.getenv("MQTT_TOPIC_EVENTS") or "").strip().strip("/")
+        if mqtt_topic:
+            mqtt_topic_root = mqtt_topic
+            mqtt_topic_events_value = f"{mqtt_topic_root}/event"
+        elif mqtt_topic_events:
+            mqtt_topic_events_value = mqtt_topic_events
+            mqtt_topic_root = mqtt_topic_events.rsplit("/", 1)[0] if "/" in mqtt_topic_events else mqtt_topic_events
+        else:
+            mqtt_topic_root = DEFAULT_MQTT_TOPIC_ROOT
+            mqtt_topic_events_value = f"{mqtt_topic_root}/event"
+
         return cls(
             host=os.getenv("HOST", "0.0.0.0"),
             port=parse_int(os.getenv("PORT"), 8080),
@@ -88,7 +101,8 @@ class Config:
             mqtt_port=parse_int(os.getenv("MQTT_PORT"), 1883),
             mqtt_user=os.getenv("MQTT_USER", ""),
             mqtt_password=os.getenv("MQTT_PASSWORD", ""),
-            mqtt_topic_events=os.getenv("MQTT_TOPIC_EVENTS", "unifi/protect/event"),
+            mqtt_topic_events=mqtt_topic_events_value,
+            mqtt_topic_root=mqtt_topic_root,
             mqtt_qos=parse_int(os.getenv("MQTT_QOS"), 1),
             mqtt_retain=parse_bool(os.getenv("MQTT_RETAIN"), False),
             dedup_seconds=max(0, parse_int(os.getenv("DEDUP_SECONDS"), 30)),
@@ -268,14 +282,14 @@ class EventProcessor:
     def _publish_presence_on(self, event: dict[str, Any]) -> None:
         target = event.get("zone", event["camera"])
         event_type = event["type"]
-        topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}"
+        topic = f"{self._config.mqtt_topic_root}/{target}"
         self._publisher.publish(
             topic,
             "ON",
             qos=self._config.mqtt_qos,
             retain=self._config.mqtt_retain,
         )
-        type_topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}/{event_type}"
+        type_topic = f"{self._config.mqtt_topic_root}/{target}/{event_type}"
         self._publisher.publish(
             type_topic,
             "ON",
@@ -298,14 +312,14 @@ class EventProcessor:
                         expired_targets.append((target, event_type))
                         del self._presence_deadlines[target]
             for target, event_type in expired_targets:
-                topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}"
+                topic = f"{self._config.mqtt_topic_root}/{target}"
                 self._publisher.publish(
                     topic,
                     "OFF",
                     qos=self._config.mqtt_qos,
                     retain=self._config.mqtt_retain,
                 )
-                type_topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}/{event_type}"
+                type_topic = f"{self._config.mqtt_topic_root}/{target}/{event_type}"
                 self._publisher.publish(
                     type_topic,
                     "OFF",
