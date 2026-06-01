@@ -428,6 +428,41 @@ class WebFrontendTests(unittest.TestCase):
         self.assertEqual("image/jpeg", response.content_type)
         self.assertEqual(img_bytes, response.data)
 
+    def test_latest_event_returns_null_event_before_any_webhook(self) -> None:
+        response = self.client.get("/latest-event")
+        self.assertEqual(200, response.status_code)
+        data = response.get_json()
+        self.assertIsNone(data["event"])
+        self.assertFalse(data["has_image"])
+        self.assertIn("image_ts", data)
+
+    def test_latest_event_returns_event_data_after_webhook(self) -> None:
+        payload = {
+            "alarm": {
+                "triggers": [
+                    {
+                        "key": "vehicle",
+                        "device": "CAM1",
+                        "eventId": "evt-json",
+                        "timestamp": 9999,
+                        "sourceEvent": {"score": 50},
+                    }
+                ]
+            }
+        }
+        self.client.post("/webhook", json=payload)
+        response = self.client.get("/latest-event")
+        self.assertEqual(200, response.status_code)
+        data = response.get_json()
+        event = data["event"]
+        self.assertIsNotNone(event)
+        self.assertEqual("vehicle", event["type"])
+        self.assertEqual("CAM1", event["camera"])
+        self.assertEqual("front_door", event["zone"])
+        self.assertEqual("evt-json", event["eventId"])
+        self.assertEqual(9999, event["timestamp"])
+        self.assertEqual(50, event["score"])
+
     def test_webhook_updates_event_store(self) -> None:
         payload = {
             "alarm": {
