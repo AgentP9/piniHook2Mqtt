@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - HOST
-      - PORT
       - MQTT_HOST
       - MQTT_PORT
       - MQTT_USER
@@ -19,5 +17,5 @@ services:
       - LOG_LEVEL
       - WEBHOOK_TOKEN
     ports:
-      - "4040:8080"
+      - "${PORT:-4040}:8080"
     restart: unless-stopped

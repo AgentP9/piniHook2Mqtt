@@ -9,7 +9,7 @@ The container runs `app.py` and exposes:
 - `GET /health`
 - `POST /webhook`
 
-The image listens on port `8080` inside the container. The provided `docker-compose.yml` publishes it as `4040:8080`.
+The image listens on port `8080` inside the container. The provided `docker-compose.yml` publishes it as `${PORT:-4040}:8080`.
 
 ## Prerequisites
 
@@ -61,8 +61,6 @@ All runtime configuration is done with environment variables.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `HOST` | `0.0.0.0` | HTTP bind address inside the container. |
-| `PORT` | `8080` | HTTP port inside the container. |
 | `MQTT_HOST` | `mosquitto` | MQTT broker hostname or IP reachable from the container. |
 | `MQTT_PORT` | `1883` | MQTT broker port. |
 | `MQTT_USER` | empty | Optional MQTT username. |
@@ -80,7 +78,9 @@ All runtime configuration is done with environment variables.
 Example with additional settings:
 
 ```bash
+PORT=4040 \
 MQTT_HOST=192.168.1.10 \
+MQTT_PORT=1883 \
 MQTT_USER=my-user \
 MQTT_PASSWORD=my-password \
 CAMERA_MAP=8CEDE174492C=hausdurchgang_nord \

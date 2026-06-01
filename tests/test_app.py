@@ -294,11 +294,11 @@ class ServerStartupTests(unittest.TestCase):
     @patch("waitress.serve")
     def test_run_server_uses_waitress(self, serve_mock: Mock) -> None:
         application = Flask(__name__)
-        application.config["service_config"] = Config(host="127.0.0.1", port=5050)
+        application.config["service_config"] = Config(port=5050)
 
         run_server(application=application)
 
-        serve_mock.assert_called_once_with(application, host="127.0.0.1", port=5050)
+        serve_mock.assert_called_once_with(application, port=5050)
 
 
 class ConfigTests(unittest.TestCase):
@@ -338,6 +338,29 @@ class ConfigTests(unittest.TestCase):
             config = Config.from_env()
         self.assertEqual("unifi", config.mqtt_topic_root)
         self.assertEqual("unifi/event", config.mqtt_topic_events)
+
+    def test_from_env_uses_default_mqtt_port(self) -> None:
+        with patch.dict(os.environ, {"WEBHOOK_TOKEN": "token123"}, clear=True):
+            config = Config.from_env()
+        self.assertEqual(1883, config.mqtt_port)
+
+    def test_from_env_reads_mqtt_port(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"WEBHOOK_TOKEN": "token123", "MQTT_PORT": "2883"},
+            clear=True,
+        ):
+            config = Config.from_env()
+        self.assertEqual(2883, config.mqtt_port)
+
+    def test_from_env_ignores_port_environment_variable(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"WEBHOOK_TOKEN": "token123", "PORT": "9999"},
+            clear=True,
+        ):
+            config = Config.from_env()
+        self.assertEqual(8080, config.port)
 
 
 class LatestEventStoreTests(unittest.TestCase):

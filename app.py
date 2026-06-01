@@ -58,7 +58,6 @@ def parse_camera_map(value: str | None) -> dict[str, str]:
 class Config:
     """Runtime configuration loaded only from environment variables."""
 
-    host: str = "0.0.0.0"
     port: int = 8080
     mqtt_host: str = "mosquitto"
     mqtt_port: int = 1883
@@ -95,8 +94,6 @@ class Config:
             mqtt_topic_events_value = f"{mqtt_topic_root}/event"
 
         return cls(
-            host=os.getenv("HOST", "0.0.0.0"),
-            port=parse_int(os.getenv("PORT"), 8080),
             mqtt_host=os.getenv("MQTT_HOST", "mosquitto"),
             mqtt_port=parse_int(os.getenv("MQTT_PORT"), 1883),
             mqtt_user=os.getenv("MQTT_USER", ""),
@@ -646,7 +643,7 @@ def run_server(application: Flask | None = None) -> None:
 
     app_instance = application or create_app()
     cfg: Config = app_instance.config["service_config"]
-    serve(app_instance, host=cfg.host, port=cfg.port)
+    serve(app_instance, port=cfg.port)
 
 
 if __name__ == "__main__":
