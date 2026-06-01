@@ -339,6 +339,20 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual("unifi", config.mqtt_topic_root)
         self.assertEqual("unifi/event", config.mqtt_topic_events)
 
+    def test_from_env_uses_default_mqtt_port(self) -> None:
+        with patch.dict(os.environ, {"WEBHOOK_TOKEN": "token123"}, clear=True):
+            config = Config.from_env()
+        self.assertEqual(1883, config.mqtt_port)
+
+    def test_from_env_reads_mqtt_port(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"WEBHOOK_TOKEN": "token123", "MQTT_PORT": "2883"},
+            clear=True,
+        ):
+            config = Config.from_env()
+        self.assertEqual(2883, config.mqtt_port)
+
     def test_from_env_ignores_port_environment_variable(self) -> None:
         with patch.dict(
             os.environ,
