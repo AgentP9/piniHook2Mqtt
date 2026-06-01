@@ -95,15 +95,11 @@ class WebhookServiceTests(unittest.TestCase):
         self.assertEqual(1780215017758, event_payload["timestamp"])
 
         presence_message = self.publisher.messages[1]
-        self.assertEqual(
-            "unifi/protect/presence/hausdurchgang_nord", presence_message["topic"]
-        )
+        self.assertEqual("unifi/protect/hausdurchgang_nord", presence_message["topic"])
         self.assertEqual("ON", presence_message["payload"])
 
         type_message = self.publisher.messages[2]
-        self.assertEqual(
-            "unifi/protect/presence/hausdurchgang_nord/person", type_message["topic"]
-        )
+        self.assertEqual("unifi/protect/hausdurchgang_nord/person", type_message["topic"])
         self.assertEqual("ON", type_message["payload"])
 
     def test_webhook_deduplicates_camera_and_type(self) -> None:
@@ -151,8 +147,8 @@ class WebhookServiceTests(unittest.TestCase):
         off_messages = [m for m in self.publisher.messages if m["payload"] == "OFF"]
         self.assertGreaterEqual(len(off_messages), 2)
         topics = {m["topic"] for m in off_messages}
-        self.assertIn("unifi/protect/presence/hausdurchgang_nord", topics)
-        self.assertIn("unifi/protect/presence/hausdurchgang_nord/person", topics)
+        self.assertIn("unifi/protect/hausdurchgang_nord", topics)
+        self.assertIn("unifi/protect/hausdurchgang_nord/person", topics)
 
     def test_webhook_rejects_invalid_json_body(self) -> None:
         response = self.client.post(
@@ -320,6 +316,28 @@ class ConfigTests(unittest.TestCase):
         with patch.dict(os.environ, {"WEBHOOK_TOKEN": " token123 "}, clear=True):
             config = Config.from_env()
         self.assertEqual("token123", config.webhook_token)
+        self.assertEqual("unifi/protect/event", config.mqtt_topic_events)
+        self.assertEqual("unifi/protect", config.mqtt_topic_root)
+
+    def test_from_env_uses_mqtt_topic_as_root(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"WEBHOOK_TOKEN": "token123", "MQTT_TOPIC": "unifi/surveillance"},
+            clear=True,
+        ):
+            config = Config.from_env()
+        self.assertEqual("unifi/surveillance", config.mqtt_topic_root)
+        self.assertEqual("unifi/surveillance/event", config.mqtt_topic_events)
+
+    def test_from_env_derives_root_from_mqtt_topic_events(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"WEBHOOK_TOKEN": "token123", "MQTT_TOPIC_EVENTS": "unifi/event"},
+            clear=True,
+        ):
+            config = Config.from_env()
+        self.assertEqual("unifi", config.mqtt_topic_root)
+        self.assertEqual("unifi/event", config.mqtt_topic_events)
 
 
 class LatestEventStoreTests(unittest.TestCase):
