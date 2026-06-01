@@ -298,12 +298,12 @@ _FRONTEND_HTML = """\
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>piniHook2Mqtt \u2013 Latest Event</title>
-  <meta http-equiv="refresh" content="5">
   <style>
     * { box-sizing: border-box; }
-    body { font-family: sans-serif; margin: 2rem; background: #1a1a2e; color: #eee; }
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; margin: 0; padding: 2rem; }
+    .container { max-width: 640px; margin: 0 auto; }
     h1 { color: #e94560; margin: 0 0 1.5rem; }
-    .card { background: #16213e; border-radius: 8px; padding: 1.5rem; max-width: 640px; }
+    .card { background: #16213e; border-radius: 8px; padding: 1.5rem; }
     .card img { width: 100%; border-radius: 4px; display: block; margin-bottom: 1rem; }
     .badge { display: inline-block; padding: .2rem .7rem; border-radius: 4px;
              background: #e94560; font-weight: bold; font-size: .85rem;
@@ -316,33 +316,92 @@ _FRONTEND_HTML = """\
   </style>
 </head>
 <body>
-  <h1>Latest Event</h1>
-  {% if event %}
-  <div class="card">
-    <span class="badge">{{ event.type }}</span>
-    {% if has_image %}
-    <img src="/latest-image?t={{ ts }}" alt="Event thumbnail">
-    {% else %}
-    <p class="muted">No thumbnail available</p>
-    {% endif %}
-    <table>
-      <tr><td>Camera</td><td>{{ event.camera }}</td></tr>
-      {% if event.zone %}
-      <tr><td>Zone</td><td>{{ event.zone }}</td></tr>
+  <div class="container">
+    <h1>Latest Event</h1>
+    <div id="event-container">
+      {% if event %}
+      <div class="card">
+        <span class="badge">{{ event.type }}</span>
+        {% if has_image %}
+        <img src="/latest-image?t={{ ts }}" alt="Event thumbnail">
+        {% else %}
+        <p class="muted">No thumbnail available</p>
+        {% endif %}
+        <table>
+          <tr><td>Camera</td><td>{{ event.camera }}</td></tr>
+          {% if event.zone %}
+          <tr><td>Zone</td><td>{{ event.zone }}</td></tr>
+          {% endif %}
+          <tr><td>Event ID</td><td>{{ event.eventId }}</td></tr>
+          {% if event.timestamp_display is not none %}
+          <tr><td>Timestamp</td><td data-ts="{{ event.timestamp }}">{{ event.timestamp_display }}</td></tr>
+          {% endif %}
+          {% if event.score is not none %}
+          <tr><td>Score</td><td>{{ event.score }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+      {% else %}
+      <p class="muted">No events received yet.</p>
       {% endif %}
-      <tr><td>Event ID</td><td>{{ event.eventId }}</td></tr>
-      {% if event.timestamp_display is not none %}
-      <tr><td>Timestamp</td><td>{{ event.timestamp_display }}</td></tr>
-      {% endif %}
-      {% if event.score is not none %}
-      <tr><td>Score</td><td>{{ event.score }}</td></tr>
-      {% endif %}
-    </table>
+    </div>
+    <footer>Auto-refreshes every 5 seconds.</footer>
   </div>
-  {% else %}
-  <p class="muted">No events received yet.</p>
-  {% endif %}
-  <footer>Auto-refreshes every 5 seconds.</footer>
+  <script>
+    function esc(s) {
+      var d = document.createElement('div');
+      d.textContent = (s == null) ? '' : String(s);
+      return d.innerHTML;
+    }
+
+    function localTime(ts) {
+      var t = parseFloat(ts);
+      if (isNaN(t)) return String(ts);
+      return new Date(t * 1000).toLocaleString();
+    }
+
+    function updateTimestamps() {
+      document.querySelectorAll('[data-ts]').forEach(function(el) {
+        el.textContent = localTime(el.getAttribute('data-ts'));
+      });
+    }
+
+    function buildCard(data) {
+      if (!data.event) {
+        return '<p class="muted">No events received yet.</p>';
+      }
+      var e = data.event;
+      var img = data.has_image
+        ? '<img src="/latest-image?t=' + data.image_ts + '" alt="Event thumbnail">'
+        : '<p class="muted">No thumbnail available</p>';
+      var rows = '<tr><td>Camera</td><td>' + esc(e.camera) + '</td></tr>';
+      if (e.zone) rows += '<tr><td>Zone</td><td>' + esc(e.zone) + '</td></tr>';
+      rows += '<tr><td>Event ID</td><td>' + esc(e.eventId) + '</td></tr>';
+      if (e.timestamp != null) {
+        rows += '<tr><td>Timestamp</td><td>' + esc(localTime(e.timestamp)) + '</td></tr>';
+      }
+      if (e.score != null) {
+        rows += '<tr><td>Score</td><td>' + esc(e.score) + '</td></tr>';
+      }
+      return '<div class="card">'
+        + '<span class="badge">' + esc(e.type) + '</span>'
+        + img
+        + '<table>' + rows + '</table>'
+        + '</div>';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      updateTimestamps();
+      setInterval(function() {
+        fetch('/latest-event')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            document.getElementById('event-container').innerHTML = buildCard(data);
+          })
+          .catch(function() {});
+      }, 5000);
+    });
+  </script>
 </body>
 </html>
 """
@@ -482,6 +541,20 @@ def create_app(
                 event=event,
                 has_image=latest_store.has_image,
                 ts=int(time.time()),
+            ),
+            200,
+        )
+
+    @app.get("/latest-event")
+    def latest_event_api() -> tuple[Any, int]:
+        event = latest_store.get_latest()
+        return (
+            jsonify(
+                {
+                    "event": event,
+                    "has_image": latest_store.has_image,
+                    "image_ts": int(time.time()),
+                }
             ),
             200,
         )
