@@ -72,6 +72,7 @@ class Config:
     camera_map: dict[str, str] = field(default_factory=dict)
     log_level: str = "INFO"
     thumbnail_path: str = "/tmp/latest_thumbnail.jpg"
+    webhook_token: str = ""
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -91,6 +92,7 @@ class Config:
             camera_map=parse_camera_map(os.getenv("CAMERA_MAP")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             thumbnail_path=os.getenv("THUMBNAIL_PATH", "/tmp/latest_thumbnail.jpg"),
+            webhook_token=os.getenv("WEBHOOK_TOKEN", ""),
         )
 
 
@@ -167,7 +169,7 @@ class EventProcessor:
         self._logger = logger
         self._lock = threading.Lock()
         self._recent_events: dict[tuple[str, str], float] = {}
-        self._presence_deadlines: dict[str, float] = {}
+        self._presence_deadlines: dict[str, tuple[float, str]] = {}
         self._stop_event = threading.Event()
         self._thread_started = False
         self._presence_thread = threading.Thread(
@@ -261,6 +263,7 @@ class EventProcessor:
 
     def _publish_presence_on(self, event: dict[str, Any]) -> None:
         target = event.get("zone", event["camera"])
+        event_type = event["type"]
         topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}"
         self._publisher.publish(
             topic,
@@ -268,22 +271,39 @@ class EventProcessor:
             qos=self._config.mqtt_qos,
             retain=self._config.mqtt_retain,
         )
+        type_topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}/{event_type}"
+        self._publisher.publish(
+            type_topic,
+            "ON",
+            qos=self._config.mqtt_qos,
+            retain=self._config.mqtt_retain,
+        )
         with self._lock:
-            self._presence_deadlines[target] = time.time() + self._config.presence_timeout
+            self._presence_deadlines[target] = (
+                time.time() + self._config.presence_timeout,
+                event_type,
+            )
 
     def _presence_worker(self) -> None:
         while not self._stop_event.wait(timeout=1):
-            expired_targets: list[str] = []
+            expired_targets: list[tuple[str, str]] = []
             now = time.time()
             with self._lock:
-                for target, deadline in list(self._presence_deadlines.items()):
+                for target, (deadline, event_type) in list(self._presence_deadlines.items()):
                     if now >= deadline:
-                        expired_targets.append(target)
+                        expired_targets.append((target, event_type))
                         del self._presence_deadlines[target]
-            for target in expired_targets:
+            for target, event_type in expired_targets:
                 topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}"
                 self._publisher.publish(
                     topic,
+                    "OFF",
+                    qos=self._config.mqtt_qos,
+                    retain=self._config.mqtt_retain,
+                )
+                type_topic = f"{DEFAULT_PRESENCE_TOPIC_PREFIX}/{target}/{event_type}"
+                self._publisher.publish(
+                    type_topic,
                     "OFF",
                     qos=self._config.mqtt_qos,
                     retain=self._config.mqtt_retain,
@@ -571,6 +591,10 @@ def create_app(
 
     @app.post("/webhook")
     def webhook() -> tuple[Any, int]:
+        if runtime_config.webhook_token:
+            auth = request.headers.get("Authorization", "")
+            if not auth.startswith("Bearer ") or auth[len("Bearer "):] != runtime_config.webhook_token:
+                return jsonify({"status": "error", "error": "Unauthorized"}), 401
         logger.info("Received webhook")
         logger.debug("Incoming webhook body: %s", request.get_data(as_text=True))
         payload = request.get_json(silent=True)
