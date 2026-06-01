@@ -77,6 +77,10 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         """Build a configuration object from environment variables."""
+        webhook_token = os.getenv("WEBHOOK_TOKEN", "").strip()
+        if not webhook_token:
+            raise ValueError("WEBHOOK_TOKEN environment variable is required")
+
         return cls(
             host=os.getenv("HOST", "0.0.0.0"),
             port=parse_int(os.getenv("PORT"), 8080),
@@ -92,7 +96,7 @@ class Config:
             camera_map=parse_camera_map(os.getenv("CAMERA_MAP")),
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             thumbnail_path=os.getenv("THUMBNAIL_PATH", "/tmp/latest_thumbnail.jpg"),
-            webhook_token=os.getenv("WEBHOOK_TOKEN", ""),
+            webhook_token=webhook_token,
         )
 
 

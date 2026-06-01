@@ -215,11 +215,6 @@ class BearerTokenTests(unittest.TestCase):
         }
     }
 
-    def test_webhook_accepted_without_token_when_no_token_configured(self) -> None:
-        client = self._make_app("").test_client()
-        response = client.post("/webhook", json=self._valid_payload)
-        self.assertEqual(200, response.status_code)
-
     def test_webhook_accepted_with_valid_bearer_token(self) -> None:
         client = self._make_app("supersecret").test_client()
         response = client.post(
@@ -308,6 +303,23 @@ class ServerStartupTests(unittest.TestCase):
         run_server(application=application)
 
         serve_mock.assert_called_once_with(application, host="127.0.0.1", port=5050)
+
+
+class ConfigTests(unittest.TestCase):
+    def test_from_env_requires_webhook_token(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(ValueError, "WEBHOOK_TOKEN environment variable is required"):
+                Config.from_env()
+
+    def test_from_env_rejects_blank_webhook_token(self) -> None:
+        with patch.dict(os.environ, {"WEBHOOK_TOKEN": "   "}, clear=True):
+            with self.assertRaisesRegex(ValueError, "WEBHOOK_TOKEN environment variable is required"):
+                Config.from_env()
+
+    def test_from_env_strips_webhook_token(self) -> None:
+        with patch.dict(os.environ, {"WEBHOOK_TOKEN": " token123 "}, clear=True):
+            config = Config.from_env()
+        self.assertEqual("token123", config.webhook_token)
 
 
 class LatestEventStoreTests(unittest.TestCase):

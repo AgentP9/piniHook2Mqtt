@@ -74,7 +74,7 @@ All runtime configuration is done with environment variables.
 | `PRESENCE_TIMEOUT` | `180` | Seconds before the presence topic for a camera/zone is set to `OFF`. |
 | `CAMERA_MAP` | empty | Optional camera-to-zone mapping like `CAMERA1=driveway,CAMERA2=frontdoor`. |
 | `LOG_LEVEL` | `INFO` | Application log level. Accepted values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. At `DEBUG` level the raw incoming webhook body is printed to the console. |
-| `WEBHOOK_TOKEN` | empty | Optional shared secret for webhook security. When set, every `POST /webhook` request must include an `Authorization: Bearer <token>` header. Requests without a valid token receive `401 Unauthorized`. |
+| `WEBHOOK_TOKEN` | required | Required shared secret for webhook security. Every `POST /webhook` request must include an `Authorization: Bearer <token>` header. Requests without a valid token receive `401 Unauthorized`. |
 
 Example with additional settings:
 
@@ -94,26 +94,7 @@ Health check:
 curl http://localhost:4040/health
 ```
 
-Valid webhook example (no token configured):
-
-```bash
-curl -X POST http://localhost:4040/webhook \
-  -H "Content-Type: application/json" \
-  -d '{
-    "alarm": {
-      "triggers": [
-        {
-          "key": "person",
-          "device": "8CEDE174492C",
-          "eventId": "testEventId",
-          "timestamp": 1780215017758
-        }
-      ]
-    }
-  }'
-```
-
-With `WEBHOOK_TOKEN=mysecret` configured:
+Set `WEBHOOK_TOKEN=mysecret` and send:
 
 ```bash
 curl -X POST http://localhost:4040/webhook \
