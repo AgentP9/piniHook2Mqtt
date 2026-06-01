@@ -17,6 +17,7 @@ services:
       - PRESENCE_TIMEOUT
       - CAMERA_MAP
       - LOG_LEVEL
+      - WEBHOOK_TOKEN
     ports:
       - "4040:8080"
     restart: unless-stopped

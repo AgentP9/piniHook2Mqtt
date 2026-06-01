@@ -82,7 +82,7 @@ class WebhookServiceTests(unittest.TestCase):
 
         response = self.client.post("/webhook", json=payload)
         self.assertEqual(200, response.status_code)
-        self.assertEqual(2, len(self.publisher.messages))
+        self.assertEqual(3, len(self.publisher.messages))
 
         event_message = self.publisher.messages[0]
         self.assertEqual("unifi/protect/event", event_message["topic"])
@@ -99,6 +99,12 @@ class WebhookServiceTests(unittest.TestCase):
             "unifi/protect/presence/hausdurchgang_nord", presence_message["topic"]
         )
         self.assertEqual("ON", presence_message["payload"])
+
+        type_message = self.publisher.messages[2]
+        self.assertEqual(
+            "unifi/protect/presence/hausdurchgang_nord/person", type_message["topic"]
+        )
+        self.assertEqual("ON", type_message["payload"])
 
     def test_webhook_deduplicates_camera_and_type(self) -> None:
         payload = {
@@ -119,7 +125,8 @@ class WebhookServiceTests(unittest.TestCase):
 
         self.assertEqual(200, first_response.status_code)
         self.assertEqual(200, second_response.status_code)
-        self.assertEqual(2, len(self.publisher.messages))
+        # First call: event + presence ON + type ON = 3 messages; second call deduped
+        self.assertEqual(3, len(self.publisher.messages))
 
     def test_presence_timeout_publishes_off(self) -> None:
         self.processor.start()
@@ -139,8 +146,13 @@ class WebhookServiceTests(unittest.TestCase):
         self.assertEqual(200, response.status_code)
 
         time.sleep(2.1)
-        self.assertGreaterEqual(len(self.publisher.messages), 3)
-        self.assertEqual("OFF", self.publisher.messages[-1]["payload"])
+        # event + presence ON + type ON + presence OFF + type OFF
+        self.assertGreaterEqual(len(self.publisher.messages), 5)
+        off_messages = [m for m in self.publisher.messages if m["payload"] == "OFF"]
+        self.assertGreaterEqual(len(off_messages), 2)
+        topics = {m["topic"] for m in off_messages}
+        self.assertIn("unifi/protect/presence/hausdurchgang_nord", topics)
+        self.assertIn("unifi/protect/presence/hausdurchgang_nord/person", topics)
 
     def test_webhook_rejects_invalid_json_body(self) -> None:
         response = self.client.post(
@@ -158,6 +170,89 @@ class WebhookServiceTests(unittest.TestCase):
             any("Incoming webhook body:" in m and raw_body in m for m in debug_messages),
             f"Expected DEBUG log with raw body not found in: {captured.output}",
         )
+
+
+class BearerTokenTests(unittest.TestCase):
+    """Tests for webhook Bearer-token authentication."""
+
+    def _make_app(self, token: str) -> "Flask":
+        logger = logging.getLogger("test")
+        publisher = FakePublisher()
+        import tempfile, os as _os
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+        tmp.close()
+        self._tmp_path = tmp.name
+        config = Config(
+            mqtt_topic_events="unifi/protect/event",
+            dedup_seconds=0,
+            presence_timeout=180,
+            webhook_token=token,
+        )
+        processor = EventProcessor(config, publisher, logger)
+        store = LatestEventStore(tmp.name)
+        app = create_app(config=config, publisher=publisher, processor=processor, event_store=store)
+        self._processor = processor
+        return app
+
+    def tearDown(self) -> None:
+        self._processor.stop()
+        import os as _os
+
+        if _os.path.exists(self._tmp_path):
+            _os.unlink(self._tmp_path)
+
+    _valid_payload = {
+        "alarm": {
+            "triggers": [
+                {
+                    "key": "person",
+                    "device": "CAM1",
+                    "eventId": "e1",
+                    "timestamp": 1000,
+                }
+            ]
+        }
+    }
+
+    def test_webhook_accepted_without_token_when_no_token_configured(self) -> None:
+        client = self._make_app("").test_client()
+        response = client.post("/webhook", json=self._valid_payload)
+        self.assertEqual(200, response.status_code)
+
+    def test_webhook_accepted_with_valid_bearer_token(self) -> None:
+        client = self._make_app("supersecret").test_client()
+        response = client.post(
+            "/webhook",
+            json=self._valid_payload,
+            headers={"Authorization": "Bearer supersecret"},
+        )
+        self.assertEqual(200, response.status_code)
+
+    def test_webhook_rejected_with_wrong_token(self) -> None:
+        client = self._make_app("supersecret").test_client()
+        response = client.post(
+            "/webhook",
+            json=self._valid_payload,
+            headers={"Authorization": "Bearer wrongtoken"},
+        )
+        self.assertEqual(401, response.status_code)
+        self.assertEqual("error", response.get_json()["status"])
+
+    def test_webhook_rejected_with_missing_authorization_header(self) -> None:
+        client = self._make_app("supersecret").test_client()
+        response = client.post("/webhook", json=self._valid_payload)
+        self.assertEqual(401, response.status_code)
+        self.assertEqual("error", response.get_json()["status"])
+
+    def test_webhook_rejected_with_non_bearer_scheme(self) -> None:
+        client = self._make_app("supersecret").test_client()
+        response = client.post(
+            "/webhook",
+            json=self._valid_payload,
+            headers={"Authorization": "Basic supersecret"},
+        )
+        self.assertEqual(401, response.status_code)
 
 
 class MqttPublisherTests(unittest.TestCase):

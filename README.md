@@ -74,6 +74,7 @@ All runtime configuration is done with environment variables.
 | `PRESENCE_TIMEOUT` | `180` | Seconds before the presence topic for a camera/zone is set to `OFF`. |
 | `CAMERA_MAP` | empty | Optional camera-to-zone mapping like `CAMERA1=driveway,CAMERA2=frontdoor`. |
 | `LOG_LEVEL` | `INFO` | Application log level. Accepted values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. At `DEBUG` level the raw incoming webhook body is printed to the console. |
+| `WEBHOOK_TOKEN` | empty | Optional shared secret for webhook security. When set, every `POST /webhook` request must include an `Authorization: Bearer <token>` header. Requests without a valid token receive `401 Unauthorized`. |
 
 Example with additional settings:
 
@@ -93,11 +94,31 @@ Health check:
 curl http://localhost:4040/health
 ```
 
-Valid webhook example:
+Valid webhook example (no token configured):
 
 ```bash
 curl -X POST http://localhost:4040/webhook \
   -H "Content-Type: application/json" \
+  -d '{
+    "alarm": {
+      "triggers": [
+        {
+          "key": "person",
+          "device": "8CEDE174492C",
+          "eventId": "testEventId",
+          "timestamp": 1780215017758
+        }
+      ]
+    }
+  }'
+```
+
+With `WEBHOOK_TOKEN=mysecret` configured:
+
+```bash
+curl -X POST http://localhost:4040/webhook \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer mysecret" \
   -d '{
     "alarm": {
       "triggers": [
@@ -118,6 +139,7 @@ For each accepted trigger, the service publishes:
 
 1. A normalized JSON event to `MQTT_TOPIC_EVENTS`
 2. A presence state of `ON` to `unifi/protect/presence/<zone-or-camera>`
-3. A presence state of `OFF` to the same presence topic after `PRESENCE_TIMEOUT`
+3. A presence state of `ON` to `unifi/protect/presence/<zone-or-camera>/<type>` (e.g. `person`, `vehicle`, `animal`)
+4. A presence state of `OFF` to both topics after `PRESENCE_TIMEOUT`
 
 If `CAMERA_MAP` contains the camera ID, the mapped zone name is used in the presence topic and added as `zone` in the JSON payload.
