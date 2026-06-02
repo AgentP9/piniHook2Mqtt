@@ -1,4 +1,4 @@
-# piniHook2Mqtt
+# pini.eventHub.Hook2Mqtt
 
 Flask service (served by Waitress in production mode) that translates UniFi Protect webhook payloads into MQTT events.
 
