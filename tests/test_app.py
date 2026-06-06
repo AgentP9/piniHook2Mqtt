@@ -270,6 +270,18 @@ class MqttPublisherTests(unittest.TestCase):
         logger.exception.assert_called_once_with("MQTT connection failed")
         publisher._client.loop_start.assert_not_called()
 
+    def test_publish_logs_topic_at_debug_level(self) -> None:
+        logger = Mock()
+        publisher = MqttPublisher(Config(), logger)
+        publisher._client = Mock()
+        publisher._client.publish.return_value = Mock(rc=0)  # 0 == mqtt.MQTT_ERR_SUCCESS
+
+        publisher.publish("test/topic", "payload", qos=1, retain=False)
+
+        logger.debug.assert_called_once_with(
+            "Publishing MQTT message to topic %s", "test/topic"
+        )
+
     def test_on_connect_treats_success_reason_code_as_connected(self) -> None:
         logger = Mock()
         publisher = MqttPublisher(Config(), logger)

@@ -141,6 +141,7 @@ class MqttPublisher:
 
     def publish(self, topic: str, payload: str, qos: int, retain: bool) -> None:
         """Publish payloads and log transport-layer publish errors."""
+        self._logger.debug("Publishing MQTT message to topic %s", topic)
         result = self._client.publish(topic, payload=payload, qos=qos, retain=retain)
         if result.rc != mqtt.MQTT_ERR_SUCCESS:
             self._logger.warning("MQTT publish failed on topic %s (rc=%s)", topic, result.rc)
