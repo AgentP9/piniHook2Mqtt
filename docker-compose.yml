@@ -1,5 +1,5 @@
 services:
-  webhook-listener:
+  hookd:
     build:
       context: .
       dockerfile: Dockerfile
