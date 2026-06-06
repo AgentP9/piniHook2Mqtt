@@ -77,8 +77,9 @@ class Config:
     @classmethod
     def from_env(cls) -> "Config":
         """Build a configuration object from environment variables."""
+        log_level = (os.getenv("LOG_LEVEL", "INFO") or "INFO").strip().upper()
         webhook_token = os.getenv("WEBHOOK_TOKEN", "").strip()
-        if not webhook_token:
+        if log_level != "DEV" and not webhook_token:
             raise ValueError("WEBHOOK_TOKEN environment variable is required")
 
         mqtt_topic = (os.getenv("MQTT_TOPIC") or "").strip().strip("/")
@@ -105,7 +106,7 @@ class Config:
             dedup_seconds=max(0, parse_int(os.getenv("DEDUP_SECONDS"), 30)),
             presence_timeout=max(1, parse_int(os.getenv("PRESENCE_TIMEOUT"), 180)),
             camera_map=parse_camera_map(os.getenv("CAMERA_MAP")),
-            log_level=os.getenv("LOG_LEVEL", "INFO"),
+            log_level=log_level,
             thumbnail_path=os.getenv("THUMBNAIL_PATH", "/tmp/latest_thumbnail.jpg"),
             webhook_token=webhook_token,
         )
@@ -614,7 +615,7 @@ def create_app(
 
     @app.post("/webhook")
     def webhook() -> tuple[Any, int]:
-        if runtime_config.webhook_token:
+        if runtime_config.log_level.upper() != "DEV" and runtime_config.webhook_token:
             auth = request.headers.get("Authorization", "")
             if not auth.startswith("Bearer ") or auth[len("Bearer "):] != runtime_config.webhook_token:
                 return jsonify({"status": "error", "error": "Unauthorized"}), 401

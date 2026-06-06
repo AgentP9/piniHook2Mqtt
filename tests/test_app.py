@@ -205,7 +205,7 @@ class WebhookServiceTests(unittest.TestCase):
 class BearerTokenTests(unittest.TestCase):
     """Tests for webhook Bearer-token authentication."""
 
-    def _make_app(self, token: str) -> "Flask":
+    def _make_app(self, token: str, log_level: str = "INFO") -> "Flask":
         logger = logging.getLogger("test")
         publisher = FakePublisher()
         import tempfile, os as _os
@@ -217,6 +217,7 @@ class BearerTokenTests(unittest.TestCase):
             mqtt_topic_events="unifi/protect/event",
             dedup_seconds=0,
             presence_timeout=180,
+            log_level=log_level,
             webhook_token=token,
         )
         processor = EventProcessor(config, publisher, logger)
@@ -278,6 +279,11 @@ class BearerTokenTests(unittest.TestCase):
             headers={"Authorization": "Basic supersecret"},
         )
         self.assertEqual(401, response.status_code)
+
+    def test_webhook_accepted_without_token_in_dev_mode(self) -> None:
+        client = self._make_app("supersecret", log_level="DEV").test_client()
+        response = client.post("/webhook", json=self._valid_payload)
+        self.assertEqual(200, response.status_code)
 
 
 class MqttPublisherTests(unittest.TestCase):
@@ -364,6 +370,12 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual("token123", config.webhook_token)
         self.assertEqual("unifi/protect/event", config.mqtt_topic_events)
         self.assertEqual("unifi/protect", config.mqtt_topic_root)
+
+    def test_from_env_allows_missing_webhook_token_in_dev_mode(self) -> None:
+        with patch.dict(os.environ, {"LOG_LEVEL": "DEV"}, clear=True):
+            config = Config.from_env()
+        self.assertEqual("DEV", config.log_level)
+        self.assertEqual("", config.webhook_token)
 
     def test_from_env_uses_mqtt_topic_as_root(self) -> None:
         with patch.dict(
