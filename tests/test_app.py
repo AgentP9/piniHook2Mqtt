@@ -124,6 +124,40 @@ class WebhookServiceTests(unittest.TestCase):
         # First call: event + presence ON + type ON = 3 messages; second call deduped
         self.assertEqual(3, len(self.publisher.messages))
 
+    def test_webhook_deduplicates_same_event_id_with_different_type(self) -> None:
+        first_payload = {
+            "alarm": {
+                "triggers": [
+                    {
+                        "key": "person",
+                        "device": "8CEDE174492C",
+                        "eventId": "same-event",
+                        "timestamp": 1780215017758,
+                    }
+                ]
+            }
+        }
+        second_payload = {
+            "alarm": {
+                "triggers": [
+                    {
+                        "key": "vehicle",
+                        "device": "8CEDE174492C",
+                        "eventId": "same-event",
+                        "timestamp": 1780215017760,
+                    }
+                ]
+            }
+        }
+
+        first_response = self.client.post("/webhook", json=first_payload)
+        second_response = self.client.post("/webhook", json=second_payload)
+
+        self.assertEqual(200, first_response.status_code)
+        self.assertEqual(200, second_response.status_code)
+        # First call: event + presence ON + type ON = 3 messages; second call deduped by eventId
+        self.assertEqual(3, len(self.publisher.messages))
+
     def test_presence_timeout_publishes_off(self) -> None:
         self.processor.start()
         payload = {

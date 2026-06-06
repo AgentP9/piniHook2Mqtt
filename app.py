@@ -185,6 +185,7 @@ class EventProcessor:
         self._logger = logger
         self._lock = threading.Lock()
         self._recent_events: dict[tuple[str, str], float] = {}
+        self._recent_event_ids: dict[str, float] = {}
         self._presence_deadlines: dict[str, tuple[float, str]] = {}
         self._stop_event = threading.Event()
         self._thread_started = False
@@ -212,7 +213,7 @@ class EventProcessor:
             event = self._normalize_trigger(trigger)
             if event is None:
                 continue
-            if self._is_duplicate(event["camera"], event["type"]):
+            if self._is_duplicate(event["camera"], event["type"], event["eventId"]):
                 self._logger.info("Duplicate event ignored")
                 continue
             self._publish_event(event)
@@ -250,16 +251,22 @@ class EventProcessor:
             event["zone"] = zone
         return event
 
-    def _is_duplicate(self, camera: str, event_type: str) -> bool:
+    def _is_duplicate(self, camera: str, event_type: str, event_id: str) -> bool:
         if self._config.dedup_seconds <= 0:
             return False
 
         now = time.time()
         key = (camera, event_type)
+        previous_event_id = None
         with self._lock:
             previous = self._recent_events.get(key)
             self._recent_events[key] = now
+            if event_id:
+                previous_event_id = self._recent_event_ids.get(event_id)
+                self._recent_event_ids[event_id] = now
 
+        if previous_event_id is not None and (now - previous_event_id) < self._config.dedup_seconds:
+            return True
         if previous is None:
             return False
         return (now - previous) < self._config.dedup_seconds
