@@ -72,8 +72,8 @@ All runtime configuration is done with environment variables.
 | `DEDUP_SECONDS` | `30` | Duplicate suppression window per camera and event type. |
 | `PRESENCE_TIMEOUT` | `180` | Seconds before the presence topic for a camera/zone is set to `OFF`. |
 | `CAMERA_MAP` | empty | Optional camera-to-zone mapping like `CAMERA1=driveway,CAMERA2=frontdoor`. |
-| `LOG_LEVEL` | `INFO` | Application log level. Accepted values: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. At `DEBUG` level the raw incoming webhook body is printed to the console. |
-| `WEBHOOK_TOKEN` | required | Required shared secret for webhook security. Every `POST /webhook` request must include an `Authorization: Bearer <token>` header. Requests without a valid token receive `401 Unauthorized`. |
+| `LOG_LEVEL` | `INFO` | Application log level. Accepted values: `DEV`, `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`. At `DEBUG` level the raw incoming webhook body is printed to the console. At `DEV` level, webhook authentication is disabled. |
+| `WEBHOOK_TOKEN` | required (except `LOG_LEVEL=DEV`) | Shared secret for webhook security. Every `POST /webhook` request must include a valid `Authorization` header unless `LOG_LEVEL=DEV`. Requests without a valid token receive `401 Unauthorized` when authentication is enabled. |
 
 Example with additional settings:
 
