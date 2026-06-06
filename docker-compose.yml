@@ -1,6 +1,6 @@
 services:
   hookd:
-    name: "hook2mqtt"
+    container_name: "hook2mqtt"
     build:
       context: .
       dockerfile: Dockerfile
